@@ -1,0 +1,155 @@
+LABORATORIO: LOOP DE CAPA 2 EN CISCO PACKET TRACER
+===================================================
+
+Archivos entregados:
+- Escenario_Loop_STP.pkt
+- Captura_Loop_Packet_Tracer.png
+- Pasos_y_Comandos_Loop.txt
+
+ADVERTENCIA
+-----------
+Este escenario deshabilita Spanning Tree Protocol (STP) intencionalmente y solo
+debe utilizarse en Packet Tracer. En una red real puede producir una tormenta de
+broadcast, duplicación de tramas e inestabilidad de la tabla MAC.
+
+1. TOPOLOGÍA UTILIZADA
+----------------------
+- 3 switches Cisco 2960-24TT: SW1, SW2 y SW3.
+- 2 computadoras: PC0 y PC1.
+- Los switches están conectados en triángulo:
+
+                         SW1 -------- SW2
+                           \          /
+                            \        /
+                              SW3
+
+- PC0 está conectada a SW1.
+- PC1 está conectada a SW2.
+- Direcciones configuradas:
+  PC0: 192.168.10.10 / 255.255.255.0
+  PC1: 192.168.10.20 / 255.255.255.0
+
+Puertos asignados automáticamente por Packet Tracer:
+- PC0 FastEthernet0  <--> SW1 FastEthernet0/1
+- SW1 FastEthernet0/2 <--> SW2 FastEthernet0/1
+- SW2 FastEthernet0/2 <--> SW3 FastEthernet0/1
+- SW3 FastEthernet0/2 <--> SW1 FastEthernet0/3
+- SW2 FastEthernet0/3 <--> PC1 FastEthernet0
+
+2. PASOS PARA CREAR EL LOOP
+---------------------------
+1) Colocar tres switches 2960-24TT en el área de trabajo.
+2) Colocar dos PC-PT.
+3) Conectar los tres switches formando un triángulo. Se puede utilizar
+   "Automatically Choose Connection Type".
+4) Conectar PC0 a SW1 y PC1 a SW2.
+5) En PC0 abrir Desktop > IP Configuration y asignar:
+     IP Address: 192.168.10.10
+     Subnet Mask: 255.255.255.0
+6) En PC1 abrir Desktop > IP Configuration y asignar:
+     IP Address: 192.168.10.20
+     Subnet Mask: 255.255.255.0
+7) Abrir la pestaña CLI de cada switch y deshabilitar STP para VLAN 1.
+
+Comandos aplicados en SW1:
+
+enable
+configure terminal
+hostname SW1
+no spanning-tree vlan 1
+end
+write memory
+
+Comandos aplicados en SW2:
+
+enable
+configure terminal
+hostname SW2
+no spanning-tree vlan 1
+end
+write memory
+
+Comandos aplicados en SW3:
+
+enable
+configure terminal
+hostname SW3
+no spanning-tree vlan 1
+end
+write memory
+
+Resultado: los tres enlaces entre switches quedan reenviando tráfico al mismo
+tiempo. Una trama broadcast o una trama unicast desconocida puede circular de
+forma indefinida por el triángulo. En la captura, todos los indicadores de los
+enlaces del triángulo están verdes; no existe un puerto bloqueado por STP.
+
+3. CÓMO PROBAR EL EFECTO (OPCIONAL)
+-----------------------------------
+1) Cambiar de Realtime a Simulation.
+2) En Edit Filters dejar seleccionados ARP e ICMP.
+3) Usar Add Simple PDU (icono del sobre) desde PC0 hacia PC1, o abrir Command
+   Prompt en PC0 y ejecutar:
+
+ping 192.168.10.20
+
+4) Avanzar los eventos lentamente. La solicitud ARP inicial es broadcast y sus
+   copias pueden circular repetidamente por los tres switches.
+
+Nota: no dejar avanzar la simulación por mucho tiempo, porque el número de
+tramas puede crecer rápidamente.
+
+4. CÓMO ROMPER EL LOOP (MÉTODO RECOMENDADO: REACTIVAR STP)
+----------------------------------------------------------
+Ejecutar lo siguiente en SW1, SW2 y SW3:
+
+enable
+configure terminal
+spanning-tree vlan 1
+end
+write memory
+
+Esperar aproximadamente 30 a 50 segundos para que STP converja. Uno de los
+puertos redundantes deberá mostrarse en color ámbar (estado blocking). La
+conectividad entre PC0 y PC1 se conserva, pero la trayectoria circular queda
+interrumpida lógicamente.
+
+Para comprobarlo en cada switch:
+
+show spanning-tree vlan 1
+
+Se debe observar un solo Root Bridge y, en alguno de los enlaces redundantes,
+un puerto con rol Alternate/estado Blocking (según la salida disponible en el
+modelo de Packet Tracer).
+
+5. OTRA FORMA DE ROMPER EL LOOP: APAGAR UN ENLACE
+-------------------------------------------------
+También se puede eliminar una de las tres conexiones entre switches. Por
+ejemplo, apagar el enlace SW1-SW3 desde SW1:
+
+enable
+configure terminal
+interface fastEthernet 0/3
+shutdown
+end
+write memory
+
+Para restaurar ese enlace posteriormente:
+
+enable
+configure terminal
+interface fastEthernet 0/3
+no shutdown
+end
+
+Si el enlace se restaura mientras STP sigue deshabilitado, el loop vuelve a
+existir. Por esa razón, la solución permanente recomendada es reactivar STP en
+los tres switches.
+
+6. RESUMEN
+----------
+- El loop se crea con una conexión física redundante en triángulo y el comando
+  "no spanning-tree vlan 1" en los tres switches.
+- El loop se rompe de manera segura con "spanning-tree vlan 1" en los tres
+  switches, permitiendo que STP bloquee automáticamente el camino redundante.
+- Como alternativa temporal, se desconecta o apaga uno de los tres enlaces del
+  triángulo.
